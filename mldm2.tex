@@ -1,0 +1,245 @@
+\documentclass[11pt]{article}
+\usepackage{a4wide,times}
+\usepackage{parskip}
+\usepackage{lmodern}
+\usepackage{multicol}
+\usepackage{url}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\usepackage[utf8]{inputenc}
+\usepackage{tgpagella}
+
+\numberwithin{equation}{section}
+
+\DeclareMathOperator*{\argmin}{\arg\min}
+
+\begin{document}
+
+\date{}
+\title{\huge \bf{Using support vector machines and\\ decision tree-based methods for\\ analysing gene expression data}}\maketitle
+\centerline{\Large {Machine Learning and Algorithms for Data Mining --- Assignment 2}}
+\vspace{1em}
+\centerline{(Word count: )}
+\vspace{2em}
+
+\begin{abstract}
+\noindent
+\textit{This report presents a methodology for classification of gene expression data using support vector machines and various methods based on decision trees (bagging, random forests, adaptive and gradient boosting). The aim is to distinguish patients with rheumatoid arthritis from healthy controls by processing expression levels of 22,283 genes from three clinical groups in Jena, Berlin and Leipzig \cite{woetzel2014}. The first section gives an overview of the clinical problem and presents the theoretical aspects behind the previously mentioned algorithms. Following this, I describe the dataset pre-processing and software packages used to implement my methodology. Finally, the evaluation section describes the results obtained by applying the different methods to the gene expression data.}
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Motivation}
+
+Rheumatoid arthritis (RA) is one of the most common forms of arthritis---a progressive, chronically inflammatory and destructive joint disease that is sustained by an invasive synovial membrane. Distinguishing RA patients from those affected by other inflammatory or degenerative joint diseases or healthy controls, based solely on differentially expressed genes, is difficult. Consequently, we require other unbiased approaches for classification; one such method is discussed by Woetzel et al. \cite{woetzel2014}, who employed rule-based classifiers to discriminate between RA, osteoarthritis (OA) and healthy controls. 
+
+Using a subset of the data described in their research, my work addresses binary classification, distinguishing RA patients from the control group. The machine learning methods that I applied---support vector machines and decision tree-based methods---are described in the following subsections.
+
+\subsection{Support vector machines}
+
+The \textit{support vector machine} (SVM) represents a supervised machine learning technique that performs binary classification by separating the classes with a \textit{hyperplane} in the feature space. For optimal performance, an SVM aims to find the biggest distance from the plane to the boundary data points.
+
+A $p$-dimensional hyperplane is defined as:
+\begin{equation}
+\beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_pX_p = 0,
+\end{equation}
+
+such that if the data point $\mathbf{X} = (X_1, X_2, ..., X_p)^\top$ satisfies the equation, then it lies on the hyperplane.
+
+Assuming the samples in our dataset take the form $(\mathbf{X}_i, Y_i)$, with $Y_i \in \{-1, +1\}$ (for binary classification), we aim to learn a function $f(\mathbf{X}) = \beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_pX_p$ that approximates the response variable $Y$ such that examples from one class lie on one side of the hyperplane ($f(\mathbf{X}) < 0$) and the others satisfy $f(\mathbf{X}) > 0$.
+
+Then, we need to select the hyperplane that achieves the \textit{maximal margin} between the two classes, defined as the biggest perpendicular distance between the plane and the points closest to it.
+
+This can be defined as a \textit{constraint optimisation problem}---find a set of values $\beta_i, i = 0, 1, 2, ..., p$ to maximise $M$, subject to $\sum_{i = 0}^{p} \beta_i^2 = 1$, such that:
+\begin{equation}
+\beta_0 + \beta_1X_{i1} + \beta_2X_{i2} + ... + \beta_pX_{ip} \geq M, \forall i = 1, 2, ..., n,
+\end{equation}
+
+where $n$ is the number of training examples.
+
+However, deriving the best hyperplane might result in overfitting and poorer generalisation ability of the SVM when exposed to unseen data. Instead, we can have a better performance on the test set by misclassifying a few training examples:
+\begin{itemize}
+\item introduce and find values for \textit{slack variables} $\epsilon_1, \epsilon_2, ..., \epsilon_n$ representing how far away each data point can be on the wrong side of the hyperplane;
+\item re-design the constraint optimisation problem such that:
+\begin{equation}
+\beta_0 + \beta_1X_{i1} + \beta_2X_{i2} + ... + \beta_pX_{ip} \geq M(1-\epsilon_i), \forall i = 1, 2, ..., n,
+\end{equation}
+with $\epsilon_i \geq 0$ and $\sum_{i = 1}^{n} \epsilon_i \leq C$.
+\end{itemize}
+
+Problems might still arise when we cannot linearly separate two classes. In this case, the solution is to \textit{enlarge the feature space} through various functions of features. \textit{Kernel functions} can quantify how similar two data points are, while avoiding complexities such as computing polynomials in feature space (which quickly becomes intractable). The kernels I used are:
+\begin{enumerate}
+\item linear kernel (corresponds to the support vector classifier):
+\begin{equation}
+K(x_i, x_{i'}) = \sum_{j = 1}^{p} x_{ij} x_{i'j},
+\end{equation}
+\item polynomial kernel:
+\begin{equation}
+K(x_i, x_{i'}) = \bigg(1 + \sum_{j = 1}^{p} x_{ij} x_{i'j}\bigg)^d,
+\end{equation}
+\item radial (Gaussian) kernel (also known as RBF kernel):
+\begin{equation}
+K(x_i, x_{i'}) = \exp\bigg(-\gamma\sum_{j = 1}^{p}(x_{ij} - x_{i'j})^2\bigg), \text{with } \gamma > 0.
+\end{equation}
+\end{enumerate}
+
+\subsection{Decision trees}
+
+Widely used for discriminative tasks, a decision tree learns a hierarchy of \textit{if/else} questions which eventually lead to the classification of the given data point. Nodes in the tree can either represent \textit{questions} or \textit{decisions}---in the latter case, the node is a leaf---thereby providing a series of binary splits in the feature plane. These splits produce non-overlapping regions that correspond to classes.
+
+Overfitting usually occurs when the decision tree represents a highly complex model of the training data, such that all its leaves are \textit{pure} (the tree obtains 100\% accuracy on the training set). This can be solved by either:
+\begin{itemize}
+\item early stopping of the tree construction (pre-pruning)---can be done by limiting the maximum depth or number of leaves of the tree;
+\item removing/collapsing nodes which contain little information (pruning).
+\end{itemize}
+
+At each step, we choose the variable that best splits the set of items according to an \textit{impurity} measure; the one used in this study is the Gini measure:
+\begin{equation}
+H(N_m) = \sum_{k = 1}^{C} p_{mk} (1 - p_{mk}),
+\end{equation}
+
+where $p_{mk}$ is the proportion of examples belonging to class $k$ at node $m$. The algorithm I used for decision trees is CART (Classification and Regression Trees), which constructs binary trees using the feature and threshold that give the largest information gain upon every split.
+
+\subsection{Bagging}
+
+Decision trees are easy to construct, but they can produce noisy or weak classifiers. More powerful machine learning models can be obtained by \textit{ensembling} multiple classifiers. One of these approaches is called \textit{bagging} and aims to improve prediction performance by reducing the variance of the classifier and obtaining smoother decision boundaries. The bagging algorithm proceeds in the following manner:
+\begin{itemize}
+\item draw $B$ bootstrap samples $\mathbf{S'}_i, i = 1, 2, ..., B$ with replacement from the dataset $\mathbf{S}$;
+\item use each sample $\mathbf{S'}_i$ to train a separate decision tree and record its out-of-bag (OOB) error rate on the examples from $\mathbf{S}$ that were not included in $\mathbf{S'}_i$;
+\item average the recorded values and provide a final estimate for the OOB error.
+\end{itemize}
+
+The classification performance is improved, as recording $B$ values for the OOB error reduces its variance from an initial value of $\sigma^2$ to $\frac{\sigma^2}{B}$.
+
+\subsection{Random forests}
+
+A further refinement to decision trees, random forests (RFs) improve on the bagging approach by de-correlating the trees. This is crucial when we encounter a strong predictor variable in the dataset; most trees will first split the data by this predictor, so all of the bagged trees will be similar and their predictions highly correlated. This in turn will hurt the variance, since averaging many highly correlated quantities does not reduce the variance as much as if the quantities are uncorrelated.
+
+RFs solve this issue by considering only a random subset of $m$ of the $p$ predictors at each split in the tree. The values I used for $m$ were $m = \sqrt{p}$ and $m = \log_2p$.
+
+\subsection{Boosting}
+
+Boosting approaches improve on random forests by averaging trees which are grown to weighted versions of the training set. I use two types of boosting:
+\begin{itemize}
+\item gradient boosting, which takes three hyperparameters ($B$---the number of steps, $\epsilon$---the shrinkage factor, $d$---the maximum tree depth) and proceeds as follows: starting from a model $\hat{G} = 0$ and a residual vector $\mathbf{r} = \mathbf{y}$, at each step we fit a regression tree $\tilde{g}_i$ to the data, then we update the model $\hat{G}_i = \hat{G}_{i-1} + \epsilon \cdot \tilde{g}_i$ and the residuals $r_i = r_i - (\epsilon \cdot \tilde{g}_i)(\mathbf{X}_i)$;
+\item adaptive boosting (AdaBoost): a special case of gradient boosting that assigns higher importance to more poorly fitted training examples.
+\end{itemize}
+
+\section{Implementation}
+
+All the work presented in this report has been carried out in the Python programming language, using various libraries that I will describe in the following subsections.
+
+\subsection{Processing the dataset}
+
+The data I used to evaluate the various machine learning models was downloaded from the following GEO DataSet browser locations and represents three clinical groups in Jena, Berlin and Leipzig:
+
+\begin{verbatim}
+https://www.ncbi.nlm.nih.gov/sites/GDSbrowser?acc=GDS5401
+https://www.ncbi.nlm.nih.gov/sites/GDSbrowser?acc=GDS5402
+https://www.ncbi.nlm.nih.gov/sites/GDSbrowser?acc=GDS5403
+\end{verbatim}
+
+For the purpose of the report methodology, I only extracted the columns representing healthy controls (30 in total) and rheumatoid arthritis patients (33 across the three datasets) for binary classification. The \texttt{GEOparse} library \cite{geoparse}, based on the R library \texttt{GEOquery}, allowed me to parse the data from the SOFT files in a suitable format---a table which facilitated the retrieval of data for the mentioned patients, as they are indexed by columns. First, I loaded the SOFT files into Python:
+\begin{verbatim}
+gds = GEOparse.get_GEO(filepath="./GDS5401_full.soft")
+\end{verbatim}
+Next, I prepared containers for the predictor (gene expression levels) and response variables (indicator whether the person is a healthy control or an RA patient):
+\begin{verbatim}
+Xs = np.empty(shape=(num_samples, num_features), dtype=float)
+ys = np.empty(shape=(num_samples,), dtype=int)
+\end{verbatim}
+To extract data for the healthy controls and RA patients, I first looked at the corresponding ranges on the GEO webpages,  under the 'Sample Subsets' tab (e.g. the GDS5403 dataset contains RA patients in the range of identifiers GSM13373\textbf{14}--GSM13373\textbf{26}).
+
+After retrieving the columns through \texttt{cols = gds.table.columns}, I filtered the relevant data from the rest (the ranges [\texttt{l\_C}, ..., \texttt{r\_C}] and [\texttt{l\_RA}, ..., \texttt{r\_RA}] correspond to the ones I identified as described above):
+\begin{verbatim}
+curr_sample = 0
+for key in cols:
+   # Check if this column corresponds to patient data
+    if 'GSM' in key:
+        if l_C <= key[-2:] and key[-2:] <= r_C:
+            # Class = healthy control
+            ys[curr_sample] = 0
+        elif l_RA <= key[-2:] and key[-2:] <= r_RA:
+            # Class = RA patient
+            ys[curr_sample] = 1
+        else:
+            # Other data - not interested
+            continue
+        
+        # Record gene expression levels for the current person
+        Xs[curr_sample, :] = gds.table[key]
+        curr_sample += 1
+\end{verbatim}
+
+\subsection{Machine learning models}
+
+Classification methodologies require evaluation and comparison; the \texttt{scikit-learn} library \cite{scikit-learn} provides simple interfaces to many ML models, including SVMs, decision trees, random forests and ensembling approaches such as bagging and boosting. Furthermore, the library contains useful evaluation metrics (e.g. confusion matrix, recall, precision, F1 score).
+
+The following lines illustrate how to instantiate all the classifiers I used for this report:
+\begin{verbatim}
+SVM_linear = svm.SVC(kernel='linear', C=C)
+SVM_poly = svm.SVC(kernel='poly', C=C, degree=deg)
+SVM_rbf = svm.SVC(kernel='rbf', C=C, gamma=gamma)
+
+dt = tree.DecisionTreeClassifier(max_depth=max_depth)
+
+b = BaggingClassifier(base_estimator=None, # defaults to a decision tree
+                      n_estimators=num_trees,
+                      oob_score=True)
+                      
+rf = RandomForestClassifier(n_estimators=num_trees,
+                            max_features=max_features, # log2 or sqrt
+                            oob_score=True)
+
+gb = GradientBoostingClassifier(n_estimators=num_trees,
+                                max_depth=max_depth)
+
+adab = AdaBoostClassifier(n_estimators=num_trees)
+\end{verbatim}
+
+The performance of SVMs, decision trees, gradient boosting and adaptive boosting was evaluated using the metrics below and saved to pickled files (the \texttt{pickle} module performs Python object serialization):
+\begin{verbatim}
+cm = confusion_matrix(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+
+# Save the results in a pickled format
+res = { "cm" : cm, "recall" : recall, "precision" : precision, "f1" : f1 }
+pickle.dump(res, open(filename, "wb"))
+\end{verbatim}
+
+Bagging and random forests perform bootstrap sampling with replacement, so their evaluation consists of out-of-bag error estimates:
+\begin{verbatim}
+oob_error = 1 - b.oob_score_
+oob_error = 1 - rf.oob_score_
+\end{verbatim}
+
+\section{Evaluation}
+
+\subsection{SVMs}
+
+\subsection{Decision tree-based methods}
+
+% \clearpage // for graphics
+
+\section{Conclusion}
+
+\medskip
+\begin{thebibliography}{9}
+\bibitem{woetzel2014}
+Woetzel, D., Huber, R., Kupfer, P., Pohlers, D., Pfaff, M., Driesch, D., ... \& Kinne, R. W. (2014). Identification of rheumatoid arthritis and osteoarthritis patients by transcriptome-based rule set generation. Arthritis research \& therapy, 16(2), R84.
+\bibitem{mldm}
+Jamnik, M., Li\`o, P., \& Sauerwald, T. (2017). Lecture notes for \textit{Machine Learning and Algorithms for Data Mining} (University of Cambridge Computer Laboratory - MPhil in Advanced Computer Science).
+\bibitem{geoparse}
+Gumienny, R. (2015). GEOparse: Python library to access Gene Expression Omnibus Database (GEO). \texttt{https://geoparse.readthedocs.io/en/latest/introduction.html}.
+\bibitem{scikit-learn}
+Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V. and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P. and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, E. (2011). Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research, 12, 2825--2830.
+
+\end{thebibliography}
+
+\end{document}
