@@ -6,6 +6,8 @@
 \usepackage{url}
 \usepackage{mathtools}
 \usepackage{bm}
+\usepackage{color}
+\usepackage{float}
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \usepackage{graphicx}
@@ -23,7 +25,7 @@
 \title{\huge \bf{Using support vector machines and\\ decision tree-based methods for\\ analysing gene expression data}}\maketitle
 \centerline{\Large {Machine Learning and Algorithms for Data Mining --- Assignment 2}}
 \vspace{1em}
-\centerline{(Word count: )}
+\centerline{(Word count: 2161)}
 \vspace{2em}
 
 \begin{abstract}
@@ -35,7 +37,7 @@
 
 \subsection{Motivation}
 
-Rheumatoid arthritis (RA) is one of the most common forms of arthritis---a progressive, chronically inflammatory and destructive joint disease that is sustained by an invasive synovial membrane. Distinguishing RA patients from those affected by other inflammatory or degenerative joint diseases or healthy controls, based solely on differentially expressed genes, is difficult. Consequently, we require other unbiased approaches for classification; one such method is discussed by Woetzel et al. \cite{woetzel2014}, who employed rule-based classifiers to discriminate between RA, osteoarthritis (OA) and healthy controls. 
+\textit{Rheumatoid arthritis} (RA) is one of the most common forms of arthritis---a progressive, chronically inflammatory and destructive joint disease that is sustained by an invasive synovial membrane. Distinguishing RA patients from those affected by other inflammatory or degenerative joint diseases or healthy controls, based solely on differentially expressed genes, is difficult. Consequently, we require other unbiased approaches for classification; one such method is discussed by Woetzel et al. \cite{woetzel2014}, who employed rule-based classifiers to discriminate between RA, osteoarthritis (OA) and healthy controls. 
 
 Using a subset of the data described in their research, my work addresses binary classification, distinguishing RA patients from the control group. The machine learning methods that I applied---support vector machines and decision tree-based methods---are described in the following subsections.
 
@@ -93,8 +95,8 @@ Widely used for discriminative tasks, a decision tree learns a hierarchy of \tex
 
 Overfitting usually occurs when the decision tree represents a highly complex model of the training data, such that all its leaves are \textit{pure} (the tree obtains 100\% accuracy on the training set). This can be solved by either:
 \begin{itemize}
-\item early stopping of the tree construction (pre-pruning)---can be done by limiting the maximum depth or number of leaves of the tree;
-\item removing/collapsing nodes which contain little information (pruning).
+\item early stopping of the tree construction (\textit{pre-pruning})---can be done by limiting the maximum depth or number of leaves of the tree;
+\item removing/collapsing nodes which contain little information (\textit{pruning}).
 \end{itemize}
 
 At each step, we choose the variable that best splits the set of items according to an \textit{impurity} measure; the one used in this study is the Gini measure:
@@ -117,13 +119,13 @@ The classification performance is improved, as recording $B$ values for the OOB 
 
 \subsection{Random forests}
 
-A further refinement to decision trees, random forests (RFs) improve on the bagging approach by de-correlating the trees. This is crucial when we encounter a strong predictor variable in the dataset; most trees will first split the data by this predictor, so all of the bagged trees will be similar and their predictions highly correlated. This in turn will hurt the variance, since averaging many highly correlated quantities does not reduce the variance as much as if the quantities are uncorrelated.
+A further refinement to decision trees, \textit{random forests} (RFs) improve on the bagging approach by de-correlating the trees. This is crucial when we encounter a strong predictor variable in the dataset; most trees will first split the data by this predictor, so all of the bagged trees will be similar and their predictions highly correlated. This in turn will hurt the variance, since averaging many highly correlated quantities does not reduce the variance as much as if the quantities are uncorrelated.
 
 RFs solve this issue by considering only a random subset of $m$ of the $p$ predictors at each split in the tree. The values I used for $m$ were $m = \sqrt{p}$ and $m = \log_2p$.
 
 \subsection{Boosting}
 
-Boosting approaches improve on random forests by averaging trees which are grown to weighted versions of the training set. I use two types of boosting:
+\textit{Boosting} approaches improve on random forests by averaging trees which are grown to weighted versions of the training set. I use two types of boosting:
 \begin{itemize}
 \item gradient boosting, which takes three hyperparameters ($B$---the number of steps, $\epsilon$---the shrinkage factor, $d$---the maximum tree depth) and proceeds as follows: starting from a model $\hat{G} = 0$ and a residual vector $\mathbf{r} = \mathbf{y}$, at each step we fit a regression tree $\tilde{g}_i$ to the data, then we update the model $\hat{G}_i = \hat{G}_{i-1} + \epsilon \cdot \tilde{g}_i$ and the residuals $r_i = r_i - (\epsilon \cdot \tilde{g}_i)(\mathbf{X}_i)$;
 \item adaptive boosting (AdaBoost): a special case of gradient boosting that assigns higher importance to more poorly fitted training examples.
@@ -152,9 +154,9 @@ Next, I prepared containers for the predictor (gene expression levels) and respo
 Xs = np.empty(shape=(num_samples, num_features), dtype=float)
 ys = np.empty(shape=(num_samples,), dtype=int)
 \end{verbatim}
-To extract data for the healthy controls and RA patients, I first looked at the corresponding ranges on the GEO webpages,  under the 'Sample Subsets' tab (e.g. the GDS5403 dataset contains RA patients in the range of identifiers GSM13373\textbf{14}--GSM13373\textbf{26}).
+To extract data for the healthy controls (C) and rheumatoid arthritis patients (RA), I first looked at the corresponding ranges on the GEO webpages,  under the 'Sample Subsets' tab (e.g. the GDS5403 dataset contains RA patients in the range of identifiers GSM13373\textbf{14}--GSM13373\textbf{26}).
 
-After retrieving the columns through \texttt{cols = gds.table.columns}, I filtered the relevant data from the rest (the ranges [\texttt{l\_C}, ..., \texttt{r\_C}] and [\texttt{l\_RA}, ..., \texttt{r\_RA}] correspond to the ones I identified as described above):
+After retrieving the columns through \texttt{cols = gds.table.columns}, I filtered the relevant data from the rest (the ranges [\texttt{l\_C}, ..., \texttt{r\_C}] and [\texttt{l\_RA}, ..., \texttt{r\_RA}] are the ones identified as described above):
 \begin{verbatim}
 curr_sample = 0
 for key in cols:
@@ -221,14 +223,101 @@ oob_error = 1 - rf.oob_score_
 
 \section{Evaluation}
 
+All machine learning models described in this report were evaluated with 20 random train/test partitions of the dataset and the results were averaged, in order to provide a better indicator of the real accuracy. As the dataset is quite small---63 examples in total---a single model is likely to encounter high variance on other data, so the repeated random partitioning helps reduce this variance.
+
 \subsection{SVMs}
+
+To evaluate the performance of SVM models, I trained and tested one seperate model for every combination of the following parameters:
+\begin{itemize}
+\item for all SVMs: $C = \{0.1, 1, 10\}$;
+\item polynomial kernel SVMs: $\textit{degree} = \{2, 3, ..., 15\}$;
+\item RBF kernel SVMs: $\gamma = \{0.1, 1, 10\}$.
+\end{itemize}
+
+Table \ref{table:resSVM} describes the best results for each type of SVM (chosen by the highest value for the F1 score, which incorporates both precision and recall), along with the corresponding hyperparameters.
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{ |c|c|c|c| } 
+ \hline
+  & Precision & Recall & F1 \\ 
+ \hline
+ Linear kernel ($C = 0.1$) & \bf{0.92} & \bf{1.0} & \bf{0.96} \\ 
+ \hline
+ Polynomial kernel ($C = 0.1, d = 2$) & 0.91 & 0.97 & 0.93 \\
+ \hline
+ RBF kernel ($C = 0.1, \gamma = 0.1$) & 0.64 & 1.0 & 0.77 \\ 
+ \hline
+\end{tabular}
+\caption{Results for the best \textbf{SVM} models.}
+\label{table:resSVM}
+\end{center}
+\end{table}
+
+It can be noticed that a linear boundary separates the two classes well enough, while doing feature expansion through a second-degree polynomial kernel already reduces the performance of the SVM. With an F1 score of 0.77, the Gaussian kernel is clearly unsuitable for discriminating between RA and healthy controls, which is in agreement with the linear kernel performing so well (the Gaussian kernel is not likely to cover the area outside the one determined by training examples).
 
 \subsection{Decision tree-based methods}
 
-% \clearpage // for graphics
+A single \textbf{decision tree} was evaluated with no bounds on the maximum depth, and then limited by $depth = \{1, 2, 4, 7\}$. As seen in Table \ref{table:resDT}, the unbounded tree obtains the best performance (only slightly better than a tree with depth 4). This might be due to numerous splits being required to finally make a decision regarding the class, using all of the 22,283 features.
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{ |c|c|c|c| } 
+ \hline
+  & Precision & Recall & F1 \\ 
+ \hline
+ Depth = 1 & 0.851 & 0.884 & 0.854 \\
+ \hline
+ Depth = 2 & 0.859 & 0.897 & 0.866 \\ 
+ \hline
+ Depth = 4 & 0.894 & 0.924 & 0.896 \\ 
+ \hline
+ Depth = 7 & 0.874 & 0.884 & 0.866 \\ 
+ \hline
+ Depth = $\infty$ (unbounded) & \bf{0.879} & \bf{0.938} & \bf{0.903} \\ 
+ \hline
+\end{tabular}
+\caption{Results for a single \textbf{decision tree}.}
+\label{table:resDT}
+\end{center}
+\end{table}
+
+\textbf{Bagging} is expected to improve on the performance of a single decision tree; here, only the OOB error estimate is available. Figure 1 shows that it tends to oscillate between $0.6$ and $0.9$ for most values of $t$. However, the minimum value for the OOB error is $0.038$ (so a proportion of 96.2\% correctly classified out-of-bag examples), at $t = 33$ trees.
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{bagging.png}
+\caption{Out-of-bag (OOB) error rates for the \textbf{bagging} method.}
+\end{figure}
+
+Even further improvements (once again, expected) can be noted from the results of evaluating \textbf{random forests}. This is an effect of limiting the number of features considered at each split, such that the predictions of the obtained trees are decorrelated. Figure 2 indicates that when we allow only $m = \sqrt{p}$ and $m = \log_2p$ features upon splitting, the minimum values for the OOB error are both equal to $0.0$, at $t = 79$ trees and $t = 64$ trees, respectively. However, this estimate might change if the dataset used for evaluation is considerably larger, but it still indicates a significant improvement over bagging. The graph also confirms the fact that, once a sufficient number of trees is reached, the performance cannot degrade.
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{rf.png}
+\caption{Out-of-bag (OOB) error rates for \textbf{random forests}, shown in \textcolor{blue}{blue} for $m = \sqrt{p}$ and \textcolor{green}{green} for $m = \log_2p$.}
+\end{figure}
+
+\textbf{Gradient boosting} was evaluated with the following hyperparameters: maximum depth of the trees $d$ between 2 and 10, number of trees $t$ ranging from 10 to 100. The best performance (chosen by the largest F1 score) is achieved by ($d = 3$, $t = 25$):
+\begin{itemize}
+\item precision: 0.93
+\item recall: 0.95
+\item \underline{F1: 0.93}.
+\end{itemize}
+
+I evaluated the \textbf{adaptive boosting} approach by running a separate model for any number of trees between $10$ and $200$. As seen in Figure 3, the \underline{F1 metric peaks at $0.91$}, for $t = 74$ trees.
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{adaboost.png}
+\caption{F1 score as a function of the number of trees for \textbf{adaptive boosting}.}
+\end{figure}
+
+Although boosting methods usually produce more powerful discriminators than random forests, the size of the dataset might have affected the outcome in this study. Both gradient and adaptive boosting still perform better than a single decision tree---which is highly expected---but they fail to reach the (obviously superior) performance of random forests.
 
 \section{Conclusion}
 
+The machine learning algorithms discussed in this report---especially the decision tree-based ones---generally behaved as initially discussed from a theoretical perspective, when being exposed to RA/healthy controls data. The best performances were obtained by the linear SVM model (F1 score of 0.96) and the random forest approach (OOB score of 0.0), but using significantly larger datasets to train the classifiers might produce different results which are likely to indicate performances closer to the real ones.
+
+In the case of SVMs, the superiority of the linear kernel from the polynomial and RBF ones indicates that a separating hyperplane provides a good approximation to the boundary between the two classes. Bagging was clearly outperformed by random forests, while decision trees were also surpassed by boosting approaches (F1 scores of 0.90, 0.91 and 0.93, respectively). Nevertheless, these results show an impressive performance for a dataset of 63 examples, illustrating the power of the various improvements that are added to a basic algorithm (e.g. taking bootstrap samples of the dataset to reduce variance and create smoother decision boundaries).
+
+\newpage
 \medskip
 \begin{thebibliography}{9}
 \bibitem{woetzel2014}
